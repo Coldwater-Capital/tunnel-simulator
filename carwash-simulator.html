@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Carwash Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --tunnel: #1a1a2e;
+    --neon-cyan: #00f5ff;
+    --neon-green: #39ff14;
+    --neon-pink: #ff0080;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Orbitron', sans-serif;
+    overflow: hidden;
+  }
+
+  #game-wrapper {
+    position: relative;
+    width: 480px;
+    height: 700px;
+  }
+
+  canvas {
+    display: block;
+    border: 2px solid #222;
+    box-shadow: 0 0 40px rgba(0,245,255,0.15);
+  }
+
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 15, 0.92);
+    z-index: 10;
+    padding: 24px;
+    gap: 20px;
+  }
+
+  .screen.hidden { display: none; }
+
+  h1.game-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 22px;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan), 0 0 30px var(--neon-cyan);
+    text-align: center;
+    line-height: 1.6;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 13px;
+    padding: 14px 28px;
+    border: 2px solid var(--neon-cyan);
+    background: transparent;
+    color: var(--neon-cyan);
+    cursor: pointer;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    transition: all 0.15s;
+    box-shadow: 0 0 12px rgba(0,245,255,0.4), inset 0 0 12px rgba(0,245,255,0.05);
+    clip-path: polygon(8px 0%, 100% 0%, calc(100% - 8px) 100%, 0% 100%);
+  }
+
+  .btn:hover {
+    background: rgba(0,245,255,0.15);
+    box-shadow: 0 0 24px rgba(0,245,255,0.7), inset 0 0 20px rgba(0,245,255,0.1);
+    transform: scale(1.04);
+  }
+
+  .btn:active { transform: scale(0.97); }
+
+  .btn.green {
+    border-color: var(--neon-green);
+    color: var(--neon-green);
+    box-shadow: 0 0 12px rgba(57,255,20,0.4), inset 0 0 12px rgba(57,255,20,0.05);
+  }
+  .btn.green:hover {
+    background: rgba(57,255,20,0.1);
+    box-shadow: 0 0 24px rgba(57,255,20,0.7);
+  }
+
+  .btn.pink {
+    border-color: var(--neon-pink);
+    color: var(--neon-pink);
+    box-shadow: 0 0 12px rgba(255,0,128,0.4), inset 0 0 12px rgba(255,0,128,0.05);
+  }
+  .btn.pink:hover {
+    background: rgba(255,0,128,0.1);
+    box-shadow: 0 0 24px rgba(255,0,128,0.7);
+  }
+
+  #result-title {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 18px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  #result-title.pass {
+    color: var(--neon-green);
+    text-shadow: 0 0 10px var(--neon-green), 0 0 30px var(--neon-green);
+  }
+
+  #result-title.fail {
+    color: var(--neon-pink);
+    text-shadow: 0 0 10px var(--neon-pink), 0 0 30px var(--neon-pink);
+  }
+
+  #result-subtitle {
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+    letter-spacing: 2px;
+  }
+
+  #missed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+    font-size: 12px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .missed-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #ccc;
+    letter-spacing: 1px;
+  }
+
+  .missed-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  #hud {
+    position: absolute;
+    top: 10px;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 5;
+    pointer-events: none;
+  }
+
+  #hud.hidden { display: none; }
+
+  #hud-level {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 8px var(--neon-cyan);
+    letter-spacing: 1px;
+  }
+
+  #hud-dirt {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .dirt-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transition: opacity 0.3s;
+  }
+
+  .dirt-dot.removed {
+    opacity: 0.2;
+    filter: grayscale(1);
+  }
+
+  .decoration {
+    font-size: 48px;
+    opacity: 0.6;
+  }
+
+  .divider {
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(to right, transparent, #333, transparent);
+  }
+
+  .hint-text {
+    font-size: 10px;
+    color: #555;
+    letter-spacing: 1px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <canvas id="canvas" width="480" height="700"></canvas>
+
+  <!-- HUD (visible during play) -->
+  <div id="hud" class="hidden">
+    <span id="hud-level">LEVEL 1</span>
+    <div id="hud-dirt"></div>
+  </div>
+
+  <!-- Title Screen -->
+  <div id="title-screen" class="screen">
+    <div class="decoration">🚗</div>
+    <h1 class="game-title">CARWASH<br>SIMULATOR</h1>
+    <div class="divider"></div>
+    <p class="subtitle">Keep it clean. Click fast.</p>
+    <button class="btn" id="start-btn">PRESS START</button>
+    <p class="hint-text">Click glowing buttons as the car passes through</p>
+  </div>
+
+  <!-- Result Screen -->
+  <div id="result-screen" class="screen hidden">
+    <div id="result-icon" class="decoration"></div>
+    <div id="result-title"></div>
+    <div id="result-subtitle"></div>
+    <div id="missed-list"></div>
+    <button class="btn" id="result-btn"></button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const LEVELS = [
+  { speed: 80,  windowMs: 2000, buttons: 2 },
+  { speed: 120, windowMs: 1500, buttons: 3 },
+  { speed: 160, windowMs: 1200, buttons: 4 },
+  { speed: 200, windowMs: 1000, buttons: 5 },
+  { speed: 240, windowMs: 900,  buttons: 6 },
+];
+
+const EQUIPMENT = [
+  { name: "Foam Brush",      color: "#ff4757", side: "left"  },
+  { name: "Rinse Arch",      color: "#2ed573", side: "right" },
+  { name: "Wax Applicator",  color: "#ffa502", side: "left"  },
+  { name: "Wheel Blaster",   color: "#1e90ff", side: "right" },
+  { name: "Air Dryer",       color: "#a55eea", side: "left"  },
+  { name: "Soap Cannon",     color: "#ffdd59", side: "right" },
+  { name: "Spot-Free Rinse", color: "#ff6b81", side: "left"  },
+  { name: "Bug Remover",     color: "#26de81", side: "right" },
+];
+
+const CANVAS_W = 480;
+const CANVAS_H = 700;
+const WALL_W = 100;
+const LANE_W = CANVAS_W - WALL_W * 2;   // 280
+const LANE_CX = WALL_W + LANE_W / 2;    // 240
+const CAR_W = 80;
+const CAR_H = 140;
+const BTN_W = 80;
+const BTN_H = 40;
+const ACTIVATION_THRESHOLD = 55;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let gameState = 'title';
+let levelIndex = 0;
+let carY = 0;
+let buttons = [];
+let dirtSpots = [];
+let particles = [];
+let thudFeedback = [];
+let lastTime = null;
+let rafId = null;
+let missedButtons = [];
+let passLevel = false;
+
+// ─── DOM refs ────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const titleScreen = document.getElementById('title-screen');
+const resultScreen = document.getElementById('result-screen');
+const hud = document.getElementById('hud');
+const hudLevel = document.getElementById('hud-level');
+const hudDirt = document.getElementById('hud-dirt');
+const startBtn = document.getElementById('start-btn');
+const resultBtn = document.getElementById('result-btn');
+const resultTitle = document.getElementById('result-title');
+const resultSubtitle = document.getElementById('result-subtitle');
+const missedList = document.getElementById('missed-list');
+const resultIcon = document.getElementById('result-icon');
+
+// ─── Level Setup ─────────────────────────────────────────────────────────────
+function setupLevel(idx) {
+  levelIndex = idx;
+  const lvl = LEVELS[idx];
+
+  // Shuffle equipment pool
+  const pool = EQUIPMENT.slice();
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const chosen = pool.slice(0, lvl.buttons);
+
+  carY = CANVAS_H + CAR_H;
+
+  // Spread buttons across canvas
+  const startY = CANVAS_H * 0.8;
+  const endY   = CANVAS_H * 0.15;
+
+  buttons = chosen.map((eq, i) => {
+    const t = lvl.buttons === 1 ? 0.5 : i / (lvl.buttons - 1);
+    const yPos = startY + t * (endY - startY);
+    return {
+      equipment: eq,
+      yPosition: yPos,
+      active: false,
+      clicked: false,
+      missed: false,
+      activationTime: 0,
+      clickFlash: 0,
+    };
+  });
+
+  dirtSpots = buttons.map(btn => ({
+    color: btn.equipment.color,
+    relX: (Math.random() - 0.5) * (CAR_W * 0.6),
+    relY: (Math.random() - 0.5) * (CAR_H * 0.55),
+    removed: false,
+  }));
+
+  particles = [];
+  thudFeedback = [];
+  missedButtons = [];
+  passLevel = false;
+
+  updateHud();
+}
+
+function updateHud() {
+  hudLevel.textContent = 'LEVEL ' + (levelIndex + 1);
+
+  // Rebuild dirt dots using safe DOM methods
+  while (hudDirt.firstChild) {
+    hudDirt.removeChild(hudDirt.firstChild);
+  }
+  dirtSpots.forEach(d => {
+    const dot = document.createElement('div');
+    dot.className = d.removed ? 'dirt-dot removed' : 'dirt-dot';
+    dot.style.background = d.color;
+    dot.style.boxShadow = d.removed ? 'none' : ('0 0 6px ' + d.color);
+    hudDirt.appendChild(dot);
+  });
+}
+
+// ─── Game Loop ────────────────────────────────────────────────────────────────
+function startGame() {
+  lastTime = null;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+}
+
+function loop(ts) {
+  if (lastTime === null) lastTime = ts;
+  const dt = Math.min((ts - lastTime) / 1000, 0.1);
+  lastTime = ts;
+
+  update(dt, ts);
+  draw(ts);
+
+  if (gameState === 'playing') {
+    rafId = requestAnimationFrame(loop);
+  }
+}
+
+function update(dt, ts) {
+  const lvl = LEVELS[levelIndex];
+
+  carY -= lvl.speed * dt;
+
+  buttons.forEach(btn => {
+    if (btn.clicked || btn.missed) return;
+    const dist = Math.abs(carY - btn.yPosition);
+    if (dist < ACTIVATION_THRESHOLD) {
+      if (!btn.active) {
+        btn.active = true;
+        btn.activationTime = ts;
+      }
+    } else if (btn.active) {
+      btn.active = false;
+      btn.missed = true;
+      missedButtons.push(btn);
+    }
+  });
+
+  // Update particles
+  particles.forEach(p => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vy += 80 * dt;
+    p.life -= dt;
+    p.alpha = p.life / p.maxLife;
+  });
+  particles = particles.filter(p => p.life > 0);
+
+  thudFeedback = thudFeedback.filter(t => ts - t.ts < 300);
+
+  // Win/lose checks
+  if (dirtSpots.every(d => d.removed)) {
+    endLevel(true);
+    return;
+  }
+  if (carY < -CAR_H - 20) {
+    endLevel(false);
+    return;
+  }
+
+  updateHud();
+}
+
+function endLevel(pass) {
+  gameState = 'result';
+  passLevel = pass;
+  hud.classList.add('hidden');
+
+  // Clear missed list using safe DOM methods
+  while (missedList.firstChild) {
+    missedList.removeChild(missedList.firstChild);
+  }
+
+  if (pass) {
+    resultIcon.textContent = '\u2728';
+    resultTitle.textContent = '\u2713 LEVEL COMPLETE!';
+    resultTitle.className = 'pass';
+    resultSubtitle.textContent = 'All dirt removed!';
+    if (levelIndex + 1 < LEVELS.length) {
+      resultBtn.textContent = 'NEXT LEVEL \u2192';
+      resultBtn.className = 'btn green';
+    } else {
+      resultBtn.textContent = '\u2605 PLAY AGAIN \u2605';
+      resultBtn.className = 'btn green';
+      resultSubtitle.textContent = 'You beat all levels!';
+    }
+  } else {
+    resultIcon.textContent = '\uD83D\uDCA7';
+    resultTitle.textContent = '\u2717 CAR STILL DIRTY!';
+    resultTitle.className = 'fail';
+    const remainCount = dirtSpots.filter(d => !d.removed).length;
+    resultSubtitle.textContent = remainCount + ' dirt spot' + (remainCount !== 1 ? 's' : '') + ' remaining';
+    missedButtons.forEach(btn => {
+      const item = document.createElement('div');
+      item.className = 'missed-item';
+
+      const dot = document.createElement('div');
+      dot.className = 'missed-dot';
+      dot.style.background = btn.equipment.color;
+      dot.style.boxShadow = '0 0 8px ' + btn.equipment.color;
+
+      const label = document.createElement('span');
+      label.textContent = btn.equipment.name;
+
+      item.appendChild(dot);
+      item.appendChild(label);
+      missedList.appendChild(item);
+    });
+    resultBtn.textContent = 'TRY AGAIN';
+    resultBtn.className = 'btn pink';
+  }
+
+  resultScreen.classList.remove('hidden');
+}
+
+// ─── Particles ────────────────────────────────────────────────────────────────
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 18; i++) {
+    const angle = (Math.PI * 2 * i) / 18 + Math.random() * 0.3;
+    const speed = 60 + Math.random() * 120;
+    particles.push({
+      x, y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - 30,
+      color,
+      size: 3 + Math.random() * 5,
+      life: 0.5 + Math.random() * 0.4,
+      maxLife: 0.9,
+      alpha: 1,
+    });
+  }
+}
+
+// ─── Click Handling ───────────────────────────────────────────────────────────
+canvas.addEventListener('click', e => {
+  if (gameState !== 'playing') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  buttons.forEach(btn => {
+    const bx = btnX(btn);
+    const by = btn.yPosition;
+    if (mx >= bx && mx <= bx + BTN_W && my >= by - BTN_H / 2 && my <= by + BTN_H / 2) {
+      if (btn.active && !btn.clicked) {
+        btn.clicked = true;
+        btn.active = false;
+        btn.clickFlash = performance.now();
+        const dirt = dirtSpots.find(d => d.color === btn.equipment.color && !d.removed);
+        if (dirt) {
+          dirt.removed = true;
+          spawnParticles(LANE_CX + dirt.relX, carY + dirt.relY, dirt.color);
+        }
+      } else if (!btn.active && !btn.clicked && !btn.missed) {
+        thudFeedback.push({ x: bx + BTN_W / 2, y: by, ts: performance.now() });
+      }
+    }
+  });
+});
+
+// ─── Button X helper ──────────────────────────────────────────────────────────
+function btnX(btn) {
+  return btn.equipment.side === 'left' ? 6 : CANVAS_W - WALL_W + 14;
+}
+
+// ─── Drawing ──────────────────────────────────────────────────────────────────
+function draw(ts) {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  drawBackground();
+  drawTunnel(ts);
+  drawCar();
+  drawDirt();
+  drawButtons(ts);
+  drawParticles();
+  drawThudFeedback(ts);
+}
+
+function drawBackground() {
+  ctx.fillStyle = '#080810';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+}
+
+function drawTunnel(ts) {
+  // Left wall gradient
+  const lgL = ctx.createLinearGradient(0, 0, WALL_W, 0);
+  lgL.addColorStop(0, '#0d0d1a');
+  lgL.addColorStop(1, '#1a1a2e');
+  ctx.fillStyle = lgL;
+  ctx.fillRect(0, 0, WALL_W, CANVAS_H);
+
+  // Right wall gradient
+  const lgR = ctx.createLinearGradient(CANVAS_W - WALL_W, 0, CANVAS_W, 0);
+  lgR.addColorStop(0, '#1a1a2e');
+  lgR.addColorStop(1, '#0d0d1a');
+  ctx.fillStyle = lgR;
+  ctx.fillRect(CANVAS_W - WALL_W, 0, WALL_W, CANVAS_H);
+
+  // Wall edge glow lines
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,245,255,0.3)';
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = 'rgba(0,245,255,0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(WALL_W, 0); ctx.lineTo(WALL_W, CANVAS_H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CANVAS_W - WALL_W, 0); ctx.lineTo(CANVAS_W - WALL_W, CANVAS_H); ctx.stroke();
+  ctx.restore();
+
+  // Scrolling center dashes
+  const dashLen = 30, gapLen = 20;
+  const period = dashLen + gapLen;
+  const scroll = (ts * 0.08) % period;
+  ctx.save();
+  ctx.setLineDash([dashLen, gapLen]);
+  ctx.lineDashOffset = -scroll;
+  ctx.strokeStyle = 'rgba(0,245,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(LANE_CX, 0);
+  ctx.lineTo(LANE_CX, CANVAS_H);
+  ctx.stroke();
+  ctx.restore();
+
+  // Rivets
+  ctx.fillStyle = '#2a2a3a';
+  for (let y = 30; y < CANVAS_H; y += 60) {
+    ctx.beginPath(); ctx.arc(18, y, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(CANVAS_W - 18, y, 3, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+function drawCar() {
+  const cx = LANE_CX;
+  const cy = carY;
+
+  ctx.save();
+
+  // Shadow
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.7)';
+  ctx.shadowBlur = 24;
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  roundRect(ctx, cx - CAR_W / 2 + 6, cy - CAR_H / 2 + 6, CAR_W, CAR_H, 14);
+  ctx.fill();
+  ctx.restore();
+
+  // Body
+  const bodyGrad = ctx.createLinearGradient(cx - CAR_W / 2, 0, cx + CAR_W / 2, 0);
+  bodyGrad.addColorStop(0, '#252540');
+  bodyGrad.addColorStop(0.35, '#363660');
+  bodyGrad.addColorStop(0.65, '#363660');
+  bodyGrad.addColorStop(1, '#252540');
+  ctx.fillStyle = bodyGrad;
+  ctx.strokeStyle = '#5a5a80';
+  ctx.lineWidth = 2;
+  roundRect(ctx, cx - CAR_W / 2, cy - CAR_H / 2, CAR_W, CAR_H, 14);
+  ctx.fill();
+  ctx.stroke();
+
+  // Windshield (top)
+  const wsPad = 12;
+  ctx.fillStyle = 'rgba(100,200,255,0.12)';
+  ctx.strokeStyle = 'rgba(100,200,255,0.35)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, cx - CAR_W / 2 + wsPad, cy - CAR_H / 2 + 10, CAR_W - wsPad * 2, 34, 5);
+  ctx.fill();
+  ctx.stroke();
+
+  // Rear window (bottom)
+  roundRect(ctx, cx - CAR_W / 2 + wsPad, cy + CAR_H / 2 - 44, CAR_W - wsPad * 2, 28, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Center stripe
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(cx - CAR_W / 2 + 8, cy);
+  ctx.lineTo(cx + CAR_W / 2 - 8, cy);
+  ctx.stroke();
+
+  // Wheels
+  const wheels = [
+    { x: cx - CAR_W / 2 - 5,  y: cy - CAR_H / 2 + 22 },
+    { x: cx + CAR_W / 2 - 12, y: cy - CAR_H / 2 + 22 },
+    { x: cx - CAR_W / 2 - 5,  y: cy + CAR_H / 2 - 36 },
+    { x: cx + CAR_W / 2 - 12, y: cy + CAR_H / 2 - 36 },
+  ];
+  wheels.forEach(w => {
+    ctx.fillStyle = '#111';
+    ctx.strokeStyle = '#444';
+    ctx.lineWidth = 1.5;
+    roundRect(ctx, w.x, w.y, 17, 14, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#555';
+    ctx.beginPath();
+    ctx.arc(w.x + 8.5, w.y + 7, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}
+
+function drawDirt() {
+  const cx = LANE_CX;
+  const cy = carY;
+
+  dirtSpots.forEach(spot => {
+    if (spot.removed) return;
+    const sx = cx + spot.relX;
+    const sy = cy + spot.relY;
+
+    ctx.save();
+    ctx.fillStyle = spot.color;
+    ctx.shadowColor = spot.color;
+    ctx.shadowBlur = 8;
+
+    for (let j = 0; j < 4; j++) {
+      const rx = 6 + j * 2;
+      const ry = 5 + j * 1.5;
+      const ox = (j % 2 === 0 ? 1 : -1) * j * 2;
+      const oy = (j < 2 ? 1 : -1) * j * 1.5;
+      ctx.globalAlpha = 0.85;
+      ctx.beginPath();
+      ctx.ellipse(sx + ox, sy + oy, rx, ry, j * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+}
+
+function drawButtons(ts) {
+  buttons.forEach(btn => {
+    const bx = btnX(btn);
+    const by = btn.yPosition;
+    const col = btn.equipment.color;
+
+    ctx.save();
+
+    let alpha = 0.35;
+    let glowStrength = 4;
+    let scaleY = 1;
+
+    if (btn.active) {
+      const pulse = 0.5 + 0.5 * Math.sin(ts * 0.008);
+      alpha = 0.75 + pulse * 0.25;
+      glowStrength = 16 + pulse * 12;
+      scaleY = 1 + pulse * 0.05;
+    }
+
+    if (btn.clicked) {
+      const flashAge = ts - btn.clickFlash;
+      const flashT = Math.min(flashAge / 400, 1);
+      alpha = Math.max(0, 0.15 + (1 - flashT) * 0.4);
+      glowStrength = (1 - flashT) * 20;
+    }
+
+    if (btn.missed) {
+      alpha = 0.15;
+      glowStrength = 0;
+    }
+
+    if (scaleY !== 1) {
+      ctx.translate(bx + BTN_W / 2, by);
+      ctx.scale(1, scaleY);
+      ctx.translate(-(bx + BTN_W / 2), -by);
+    }
+
+    if (glowStrength > 0) {
+      ctx.shadowColor = col;
+      ctx.shadowBlur = glowStrength;
+    }
+
+    // Background fill
+    ctx.globalAlpha = alpha * 0.25;
+    ctx.fillStyle = btn.clicked ? '#ffffff' : col;
+    roundRect(ctx, bx, by - BTN_H / 2, BTN_W, BTN_H, 6);
+    ctx.fill();
+
+    // Border
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = btn.clicked ? '#ffffff' : col;
+    ctx.lineWidth = btn.active ? 2.5 : 1.5;
+    roundRect(ctx, bx, by - BTN_H / 2, BTN_W, BTN_H, 6);
+    ctx.stroke();
+
+    // Label
+    ctx.fillStyle = btn.clicked ? '#ffffff' : col;
+    ctx.globalAlpha = Math.max(0.2, alpha);
+    ctx.shadowBlur = 0;
+    ctx.font = 'bold 7px Orbitron, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const words = btn.equipment.name.split(' ');
+    const half = Math.ceil(words.length / 2);
+    if (words.length > 1) {
+      ctx.fillText(words.slice(0, half).join(' '), bx + BTN_W / 2, by - 6);
+      ctx.fillText(words.slice(half).join(' '),    bx + BTN_W / 2, by + 6);
+    } else {
+      ctx.fillText(btn.equipment.name, bx + BTN_W / 2, by);
+    }
+
+    // Active indicator dot
+    if (btn.active) {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = col;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 8;
+      ctx.beginPath();
+      ctx.arc(bx + BTN_W / 2, by - BTN_H / 2 - 8, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  });
+}
+
+function drawParticles() {
+  particles.forEach(p => {
+    ctx.save();
+    ctx.globalAlpha = p.alpha * 0.9;
+    ctx.fillStyle = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, Math.max(0.5, p.size * p.alpha), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+}
+
+function drawThudFeedback(ts) {
+  thudFeedback.forEach(t => {
+    const age = ts - t.ts;
+    const alpha = 1 - age / 300;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(t.x, t.y, 20 + age * 0.05, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  });
+}
+
+// ─── Rounded rect helper ──────────────────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ─── Static background for title/result ──────────────────────────────────────
+function drawStaticBg() {
+  ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillStyle = '#080810';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  ctx.fillStyle = '#111120';
+  ctx.fillRect(0, 0, WALL_W, CANVAS_H);
+  ctx.fillRect(CANVAS_W - WALL_W, 0, WALL_W, CANVAS_H);
+  ctx.strokeStyle = 'rgba(0,245,255,0.12)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(WALL_W, 0); ctx.lineTo(WALL_W, CANVAS_H); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(CANVAS_W - WALL_W, 0); ctx.lineTo(CANVAS_W - WALL_W, CANVAS_H); ctx.stroke();
+}
+
+// ─── Event Handlers ───────────────────────────────────────────────────────────
+startBtn.addEventListener('click', () => {
+  titleScreen.classList.add('hidden');
+  hud.classList.remove('hidden');
+  gameState = 'playing';
+  setupLevel(0);
+  startGame();
+});
+
+resultBtn.addEventListener('click', () => {
+  resultScreen.classList.add('hidden');
+  hud.classList.remove('hidden');
+  gameState = 'playing';
+  if (passLevel) {
+    setupLevel((levelIndex + 1) % LEVELS.length);
+  } else {
+    setupLevel(levelIndex);
+  }
+  startGame();
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+drawStaticBg();
+</script>
+</body>
+</html>
