@@ -222,6 +222,41 @@
     letter-spacing: 1px;
     text-align: center;
   }
+
+  #cleanliness-rank {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .rank-label {
+    font-size: 9px;
+    color: #555;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .rank-value {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 15px;
+    letter-spacing: 2px;
+  }
+
+  .rank-value.dirty {
+    color: #ff0080;
+    text-shadow: 0 0 10px #ff0080, 0 0 28px #ff0080;
+  }
+
+  .rank-value.shinier {
+    color: #ffdd59;
+    text-shadow: 0 0 10px #ffdd59, 0 0 28px #ffdd59;
+  }
+
+  .rank-value.shiny-shell {
+    color: #39ff14;
+    text-shadow: 0 0 10px #39ff14, 0 0 28px #39ff14;
+  }
 </style>
 </head>
 <body>
@@ -249,6 +284,10 @@
     <div id="result-icon" class="decoration"></div>
     <div id="result-title"></div>
     <div id="result-subtitle"></div>
+    <div id="cleanliness-rank">
+      <span class="rank-label">Cleanliness Rank</span>
+      <span class="rank-value" id="rank-value"></span>
+    </div>
     <div id="missed-list"></div>
     <button class="btn" id="result-btn"></button>
   </div>
@@ -315,6 +354,7 @@ const resultTitle = document.getElementById('result-title');
 const resultSubtitle = document.getElementById('result-subtitle');
 const missedList = document.getElementById('missed-list');
 const resultIcon = document.getElementById('result-icon');
+const rankValue = document.getElementById('rank-value');
 
 // ─── Level Setup ─────────────────────────────────────────────────────────────
 function setupLevel(idx) {
@@ -455,6 +495,11 @@ function endLevel(pass) {
     missedList.removeChild(missedList.firstChild);
   }
 
+  const removedCount = dirtSpots.filter(d => d.removed).length;
+  const rank = getCleanlinessRank(removedCount, dirtSpots.length);
+  rankValue.textContent = rank.label;
+  rankValue.className = 'rank-value ' + rank.tier;
+
   if (pass) {
     resultIcon.textContent = '\u2728';
     resultTitle.textContent = '\u2713 LEVEL COMPLETE!';
@@ -495,6 +540,14 @@ function endLevel(pass) {
   }
 
   resultScreen.classList.remove('hidden');
+}
+
+// ─── Cleanliness Ranking ──────────────────────────────────────────────────────
+function getCleanlinessRank(removedCount, totalCount) {
+  const pct = totalCount > 0 ? removedCount / totalCount : 0;
+  if (pct >= 0.8) return { label: 'SHINY SHELL!', tier: 'shiny-shell' };
+  if (pct >= 0.5) return { label: 'SHINIER',      tier: 'shinier'    };
+  return                  { label: 'DIRTY',        tier: 'dirty'      };
 }
 
 // ─── Particles ────────────────────────────────────────────────────────────────
